@@ -1,0 +1,184 @@
+DU SKAL BYGGE EN KOMPLET WEBAPP I VANILLA HTML/CSS/JS, SOM KAN HOSTES DIREKTE PÅ GITHUB PAGES (STATISK SITE). 
+Ingen reklamer. Ingen tracking. Ingen login. Ingen betaling. 100% gratis.
+
+## Projekt: Digital Malebog (børn og unge)
+Lav en digital malebogs-app til børn og unge (ca. 4–16 år) med mange motiver. App’en skal være super enkel at bruge på mobil/tablet/desktop og have store knapper og tydelige ikoner.
+
+### Helt centrale krav
+- Ren vanilla: HTML + CSS + JavaScript (ingen React/Vue, ingen backend)
+- App’en skal kunne hostes som statiske filer (GitHub Pages)
+- Reklamefri og uden tracking/analytics/SDKs
+- Responsive UI til mobil, tablet og desktop
+- Touch support (tegning med finger) + mus på desktop
+- Motiver ligger lokalt i projektet (SVG/PNG), ingen eksterne afhængigheder der kræver server
+
+---
+
+## Funktioner (MVP)
+### 1) Forside / Galleri
+- Vis et galleri med motiver (thumbnails)
+- Kategorier: Dyr, Eventyr, Biler, Dinosaurer, Natur, Fantasy, Rum, Hav, Jul (mindst 8 kategorier)
+- Filtrering pr. kategori
+- Søgning (titel/tags)
+- Favoritter (gemmes i LocalStorage)
+- Klik på et motiv åbner Editor
+
+### 2) Editor (Mal på motiv)
+Brug HTML5 Canvas som arbejdsflade.
+- Indlæs valgt motiv (SVG eller PNG line-art) som baggrund/underlag
+- Tegneværktøjer (store knapper/ikoner):
+  - Pensel
+  - Viskelæder
+  - Fyld (bucket/flood fill)
+  - Farvevælger (pipette)
+- Indstillinger:
+  - Penselstørrelse slider
+  - (Valgfrit) Opacity slider
+  - Farvepalette med 16 børnevenlige farver + color picker
+- Handlinger:
+  - Undo/Redo (mindst 20 trin)
+  - Reset (tilbage til blankt motiv)
+  - Zoom og pan (på mobil: pinch zoom + drag pan; på desktop: ctrl+scroll eller knapper)
+- Performance:
+  - Skal føles flydende på mobil (brug requestAnimationFrame, optimer event-håndtering)
+
+### 3) Mine tegninger
+- Side “Mine tegninger” hvor man kan se gemte tegninger i et grid
+- Gemte tegninger skal kunne:
+  - Åbnes igen i editor (fortsæt)
+  - Omdøbes
+  - Sletttes
+- Lagring:
+  - Brug IndexedDB (foretrukket) til billeder (Blob) og metadata
+  - Brug LocalStorage til simple indstillinger/favoritter
+
+### 4) Eksport
+- Eksporter nuværende tegning som PNG (download)
+- Eksporten skal inkludere motiv + brugerens farvelag korrekt
+
+---
+
+## Offline / PWA (stærkt ønsket)
+- App’en skal fungere offline efter første besøg
+- Implementér service worker der cacher:
+  - HTML/CSS/JS
+  - motiver
+  - icons
+  - motifs.json
+- Tilføj manifest.json så app’en kan “føjes til hjemmeskærm”
+- Vis en lille “Offline klar ✅” eller “Offline mode” status et sted i UI (diskret)
+
+---
+
+## Motiver (indhold)
+- Tilføj 30–50 simple line-art motiver i projektet (SVG foretrækkes)
+- Brug kun motiver der er:
+  - enten selvskabte simple SVG’er, eller
+  - tydeligt public domain / permissive licens
+- Struktur:
+  - /assets/motifs/<category>/<id>.svg
+- Opret en fil: /assets/motifs/motifs.json med felter:
+  - id, title, category, file, tags[]
+- App’en loader motifs.json og genererer galleri dynamisk
+
+---
+
+## Flood fill (bucket tool) krav
+- Implementér flood fill på canvas via pixel-manipulation (getImageData/putImageData)
+- Brug tolerance så fyld ikke fejler ved antialiasing
+- Undgå at fyld løber gennem små “huller” så godt som muligt:
+  - brug en “edge threshold” strategi og/eller
+  - pre-process motivet (konturer) i canvas før fill
+- Hvis SVG er svært:
+  - Render SVG til canvas først (som Image) og brug dens pixels som base
+
+---
+
+## UI/UX krav
+- Børnevenligt design:
+  - store knapper
+  - tydelige ikoner
+  - minimal tekst
+  - rolig, farverig palette
+- Navigation:
+  - Topbar: Tilbage, Motivnavn, Gem, Eksporter
+  - Bundtoolbar: Pensel, Fyld, Viskelæder, Pipette, Undo, Redo, Reset
+- Tilgængelighed:
+  - aria-labels på alle ikonknapper
+  - store trykflader
+  - ingen små links
+
+---
+
+## Privatliv / Sikkerhed
+- Ingen analytics, ingen cookies udover LocalStorage/IndexedDB
+- Ingen netkald til tredjepart
+- Ingen reklamer
+- Ingen login
+
+---
+
+## Teknisk struktur (SKAL FØLGES)
+Brug denne mappestruktur:
+
+/ (root)
+  index.html
+  /css
+    styles.css
+  /js
+    app.js
+    router.js
+    gallery.js
+    editor.js
+    storage.js
+    floodfill.js
+    pwa.js
+    utils.js
+  /assets
+    /icons
+    /motifs
+      motifs.json
+      /Dyr
+      /Eventyr
+      /Biler
+      ...
+  manifest.json
+  service-worker.js
+  README.md
+
+### Routing (uden frameworks)
+- Brug hash-routing:
+  - #/home
+  - #/category/<name>
+  - #/editor/<motifId>
+  - #/my-drawings
+- router.js håndterer visning af “pages” (simple div-sektioner)
+
+---
+
+## Acceptancetests (skal virke)
+- Jeg kan åbne et motiv og tegne med pensel (touch + mus)
+- Bucket fill fylder et lukket område uden at farve hele canvas
+- Undo/Redo virker mindst 20 trin
+- Jeg kan gemme en tegning og åbne den igen i “Mine tegninger”
+- Jeg kan eksportere som PNG
+- App’en virker offline efter første load (Home + Editor + motiver)
+
+---
+
+## Leverance fra dig (Replit output)
+1) Hele koden i alle filer (som ovenfor)
+2) README.md der forklarer:
+   - hvordan jeg kører projektet i Replit
+   - hvordan jeg uploader til GitHub Pages (trin-for-trin)
+   - hvordan jeg tilføjer nye motiver og kategorier
+   - privacy-note: “Ingen reklamer, ingen tracking, alt gemmes lokalt”
+3) Sørg for at projektet kører direkte via “Run” i Replit med en simpel statisk server (fx Replit’s built-in), MEN uden at kræve backendkode i produktion (GitHub Pages skal virke med de samme filer).
+4) Inkludér 10–15 simple SVG-motiver du selv genererer direkte i projektet som start, og lav motifs.json der peger på dem. (Resten kan være placeholders eller flere simple SVG’er, men mindst 30 entries i motifs.json.)
+
+VIGTIGT:
+- Byg MVP først, men lever hele projektet færdigt og kørbart.
+- Undgå alt der kan bryde GitHub Pages (ingen absolute server paths, brug relative paths).
+- Sørg for at alle features er testbare uden eksterne services.
+
+Start NU med at generere projektet med filstruktur og indhold. Skriv hver fil med tydelig filnavn-header og dens komplette indhold.
