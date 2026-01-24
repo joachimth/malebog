@@ -58,6 +58,23 @@ export default function Editor() {
     }
   }, []);
 
+  // History Management
+  const saveState = useCallback((context: CanvasRenderingContext2D = ctx!) => {
+    if (!context || !canvasRef.current) return;
+    const imageData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+    
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(imageData);
+      if (newHistory.length > 20) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex(prev => {
+      const newIndex = prev + 1;
+      return Math.min(newIndex, 19);
+    });
+  }, [ctx, historyIndex]);
+
   // Load Content (Motif or Saved Drawing)
   useEffect(() => {
     if (!ctx || !canvasRef.current) return;
@@ -65,10 +82,24 @@ export default function Editor() {
     const canvas = canvasRef.current;
     const dpr = window.devicePixelRatio || 1;
 
+    // Use a variable to track if this specific effect call is still active
+    let isMounted = true;
+
     const loadContent = () => {
       const img = new Image();
       
       img.onload = () => {
+        if (!isMounted) return;
+
+        // Ensure canvas dimensions are correct before drawing
+        const rect = canvas.getBoundingClientRect();
+        if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+          canvas.width = rect.width * dpr;
+          canvas.height = rect.height * dpr;
+          ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset scale before re-applying
+          ctx.scale(dpr, dpr);
+        }
+
         // Clear with white first
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
@@ -84,80 +115,44 @@ export default function Editor() {
         
         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
         // Add a small delay to ensure drawing is flushed to canvas before saving state
-        setTimeout(() => saveState(ctx), 50);
+        setTimeout(() => {
+          if (isMounted) saveState(ctx);
+        }, 100);
       };
 
-      img.onerror = () => {
-        console.error("Image load error, retrying...");
-        setTimeout(loadContent, 200);
+      img.onerror = (e) => {
+        if (!isMounted) return;
+        console.error("Image load error:", e);
+        setTimeout(loadContent, 500);
       };
 
-      // Handle CORS for all images to be safe, especially SVGs
+      // Always allow cross-origin
       img.crossOrigin = "anonymous";
 
       if (isSavedDrawing && savedDrawing) {
         setDrawingTitle(savedDrawing.title);
-        img.src = URL.createObjectURL(savedDrawing.blob);
+        const url = URL.createObjectURL(savedDrawing.blob);
+        img.src = url;
       } else if (motif) {
         setDrawingTitle(motif.title);
-        // Add timestamp to bypass cache if needed, but for data URLs it's fine
         img.src = motif.imageUrl;
       }
     };
 
-    // Use a slightly longer delay and ensure the previous state is cleared
+    // Use a small delay to ensure canvas is painted at least once
     const timer = setTimeout(() => {
-      // Force a redraw of the background before loading image
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-      loadContent();
+      if (isMounted) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+        loadContent();
+      }
     }, 100);
     
-    return () => clearTimeout(timer);
-  }, [ctx, motif?.id, savedDrawing?.id, isSavedDrawing]);
-
-  // Handle Resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (!canvasRef.current || !ctx) return;
-      const canvas = canvasRef.current;
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      
-      // Save current content
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-      tempCanvas.getContext('2d')?.drawImage(canvas, 0, 0);
-
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.scale(dpr, dpr);
-      
-      // Restore content
-      ctx.drawImage(tempCanvas, 0, 0, canvas.width / dpr, canvas.height / dpr);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
     };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [ctx]);
-
-  // History Management
-  const saveState = (context: CanvasRenderingContext2D = ctx!) => {
-    if (!context || !canvasRef.current) return;
-    const imageData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
-    
-    setHistory(prev => {
-      const newHistory = prev.slice(0, historyIndex + 1);
-      newHistory.push(imageData);
-      if (newHistory.length > 20) newHistory.shift();
-      return newHistory;
-    });
-    setHistoryIndex(prev => {
-      const newIndex = prev + 1;
-      return Math.min(newIndex, 19);
-    });
-  };
+  }, [ctx, motif?.id, savedDrawing?.id, isSavedDrawing, saveState]);
 
   const undo = () => {
     if (historyIndex > 0 && ctx) {
