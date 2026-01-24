@@ -11,19 +11,46 @@ interface DrawingCardProps {
 }
 
 export function DrawingCard({ drawing, onDelete }: DrawingCardProps) {
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!drawing.blob) {
       console.error("No blob available for download");
+      alert("Kunne ikke downloade - ingen billeddata fundet");
       return;
     }
-    const url = URL.createObjectURL(drawing.blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${drawing.title}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    try {
+      // Try using Share API on mobile (works great on iOS)
+      if (navigator.share && navigator.canShare) {
+        const file = new File([drawing.blob], `${drawing.title}.png`, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: drawing.title
+          });
+          return;
+        }
+      }
+      
+      // Fallback for desktop or if Share API not available
+      const url = URL.createObjectURL(drawing.blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${drawing.title}.png`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup after a delay
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (error) {
+      console.error("Download error:", error);
+      // Final fallback - open in new tab
+      const url = URL.createObjectURL(drawing.blob);
+      window.open(url, '_blank');
+    }
   };
 
   return (
