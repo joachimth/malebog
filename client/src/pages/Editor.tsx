@@ -81,30 +81,26 @@ export default function Editor() {
 
     const canvas = canvasRef.current;
     const dpr = window.devicePixelRatio || 1;
-
-    // Use a variable to track if this specific effect call is still active
     let isMounted = true;
 
     const loadContent = () => {
-      const img = new Image();
+      if (!isMounted) return;
       
+      const img = new Image();
       img.onload = () => {
         if (!isMounted) return;
 
-        // Ensure canvas dimensions are correct before drawing
+        // Ensure canvas dimensions are perfect before drawing
         const rect = canvas.getBoundingClientRect();
-        if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
-          canvas.width = rect.width * dpr;
-          canvas.height = rect.height * dpr;
-          ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset scale before re-applying
-          ctx.scale(dpr, dpr);
-        }
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
 
-        // Clear with white first
+        // White background
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
         
-        // Calculate fit with 95% usage
         const scale = Math.min(
           (canvas.width / dpr) / img.width,
           (canvas.height / dpr) / img.height
@@ -114,45 +110,42 @@ export default function Editor() {
         const y = (canvas.height / dpr - img.height * scale) / 2;
         
         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-        // Add a small delay to ensure drawing is flushed to canvas before saving state
+        
+        // Final sanity check redraw to be absolutely sure browser didn't skip the paint
         setTimeout(() => {
-          if (isMounted) saveState(ctx);
-        }, 100);
+          if (isMounted) {
+             ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+             saveState(ctx);
+          }
+        }, 50);
       };
 
-      img.onerror = (e) => {
-        if (!isMounted) return;
-        console.error("Image load error:", e);
-        setTimeout(loadContent, 500);
+      img.onerror = () => {
+        if (isMounted) setTimeout(loadContent, 200);
       };
 
-      // Always allow cross-origin
       img.crossOrigin = "anonymous";
-
+      
       if (isSavedDrawing && savedDrawing) {
         setDrawingTitle(savedDrawing.title);
-        const url = URL.createObjectURL(savedDrawing.blob);
-        img.src = url;
+        img.src = URL.createObjectURL(savedDrawing.blob);
       } else if (motif) {
         setDrawingTitle(motif.title);
-        img.src = motif.imageUrl;
+        // Using an absolute timestamp and a random string to force a completely fresh request
+        const cacheBuster = `t=${Date.now()}&r=${Math.random().toString(36).substring(7)}`;
+        img.src = motif.imageUrl.startsWith('data:') ? motif.imageUrl : `${motif.imageUrl}?${cacheBuster}`;
       }
     };
 
-    // Use a small delay to ensure canvas is painted at least once
     const timer = setTimeout(() => {
-      if (isMounted) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-        loadContent();
-      }
-    }, 100);
+      if (isMounted) loadContent();
+    }, 50);
     
     return () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [ctx, motif?.id, savedDrawing?.id, isSavedDrawing, saveState]);
+  }, [ctx, motif?.id, savedDrawing?.id, isSavedDrawing]);
 
   const undo = () => {
     if (historyIndex > 0 && ctx) {
