@@ -62,57 +62,78 @@ export default function Editor() {
   useEffect(() => {
     if (!ctx || !canvasRef.current) return;
 
-    const loadContent = async () => {
+    const canvas = canvasRef.current;
+    const dpr = window.devicePixelRatio || 1;
+
+    const loadContent = () => {
       const img = new Image();
       
-      const onImageLoad = () => {
-        const canvas = canvasRef.current!;
-        const dpr = window.devicePixelRatio || 1;
+      img.onload = () => {
+        // Clear with white first
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
         
-        // Calculate aspect ratio fit
+        // Calculate fit with 95% usage
         const scale = Math.min(
-          canvas.width / dpr / img.width,
-          canvas.height / dpr / img.height
-        ) * 0.95; // Increased scale slightly
+          (canvas.width / dpr) / img.width,
+          (canvas.height / dpr) / img.height
+        ) * 0.95;
         
         const x = (canvas.width / dpr - img.width * scale) / 2;
         const y = (canvas.height / dpr - img.height * scale) / 2;
         
-        // Clear with white first to ensure clean state
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-        
         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-        // Ensure state is saved after image is definitely loaded
-        setTimeout(() => saveState(ctx), 100);
+        saveState(ctx);
       };
 
-      img.onload = onImageLoad;
-      img.onerror = (err) => {
-        console.error("Fejl ved indlæsning af motiv:", err);
-        // Try one retry if it fails
-        setTimeout(() => {
-          img.src = motif?.imageUrl || img.src;
-        }, 500);
+      img.onerror = () => {
+        console.error("Image load error, retrying...");
+        setTimeout(loadContent, 200);
       };
 
-      // Try to handle data URLs specifically
-      if (motif?.imageUrl && !motif.imageUrl.startsWith('data:')) {
+      if (!motif?.imageUrl.startsWith('data:')) {
         img.crossOrigin = "anonymous";
       }
 
       if (isSavedDrawing && savedDrawing) {
         setDrawingTitle(savedDrawing.title);
-        const url = URL.createObjectURL(savedDrawing.blob);
-        img.src = url;
+        img.src = URL.createObjectURL(savedDrawing.blob);
       } else if (motif) {
         setDrawingTitle(motif.title);
         img.src = motif.imageUrl;
       }
     };
 
-    loadContent();
+    // Ensure canvas is ready
+    const timer = setTimeout(loadContent, 50);
+    return () => clearTimeout(timer);
   }, [ctx, motif?.id, savedDrawing?.id, isSavedDrawing]);
+
+  // Handle Resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (!canvasRef.current || !ctx) return;
+      const canvas = canvasRef.current;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      
+      // Save current content
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      tempCanvas.getContext('2d')?.drawImage(canvas, 0, 0);
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      
+      // Restore content
+      ctx.drawImage(tempCanvas, 0, 0, canvas.width / dpr, canvas.height / dpr);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [ctx]);
 
   // History Management
   const saveState = (context: CanvasRenderingContext2D = ctx!) => {
@@ -402,10 +423,10 @@ export default function Editor() {
 
       {/* Canvas Area */}
       <main className="flex-1 relative bg-checkered flex items-center justify-center p-2 md:p-4 overflow-hidden">
-        <div className="bg-white shadow-2xl relative w-full h-full max-w-[98vw] max-h-[calc(100vh-14rem)] flex items-center justify-center">
+        <div className="bg-white shadow-2xl relative w-full h-full flex items-center justify-center">
            <canvas
             ref={canvasRef}
-            className="touch-none cursor-crosshair block bg-white w-auto h-auto max-w-full max-h-full aspect-[4/3]"
+            className="touch-none cursor-crosshair block bg-white w-full h-full object-contain"
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}

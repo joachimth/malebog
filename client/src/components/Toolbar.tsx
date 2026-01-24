@@ -74,13 +74,13 @@ export function Toolbar({
       </div>
 
       {/* Direct Color Picker Group */}
-      <div className="flex items-center gap-2 md:gap-3 pr-4 border-r border-gray-200 overflow-x-auto max-w-[30vw] md:max-w-none no-scrollbar">
-        <div className="flex items-center gap-1.5 md:gap-2">
-          {PRESET_COLORS.map(c => (
+      <div className="flex items-center gap-1.5 md:gap-2 pr-4 border-r border-gray-200 shrink-0">
+        <div className="flex items-center gap-1 md:gap-1.5 flex-wrap max-w-[200px] md:max-w-none">
+          {PRESET_COLORS.slice(0, 10).map(c => (
             <button
               key={c}
               className={cn(
-                "w-8 h-8 md:w-10 md:h-10 rounded-full border-2 transition-all hover:scale-110 active:scale-95 shrink-0",
+                "w-7 h-7 md:w-9 md:h-9 rounded-full border-2 transition-all hover:scale-110 active:scale-95 shrink-0",
                 color === c ? "border-primary ring-2 ring-primary/20 scale-110" : "border-white shadow-sm"
               )}
               style={{ backgroundColor: c }}
@@ -90,10 +90,10 @@ export function Toolbar({
           <Popover>
             <PopoverTrigger asChild>
               <button 
-                className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:bg-gray-50 shrink-0"
+                className="w-7 h-7 md:w-9 md:h-9 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:bg-gray-50 shrink-0"
                 title="Vælg selv farve"
               >
-                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gradient-to-tr from-red-500 via-green-500 to-blue-500" />
+                <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-gradient-to-tr from-red-500 via-green-500 to-blue-500" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-4 rounded-2xl">
