@@ -25,7 +25,8 @@ export async function registerRoutes(
   });
 
   app.get(api.motifs.get.path, async (req, res) => {
-    const id = parseInt(req.params.id);
+    const idParam = req.params.id;
+    const id = parseInt(Array.isArray(idParam) ? idParam[0] : idParam);
     const motif = await storage.getMotif(id);
     if (!motif) return res.status(404).json({ message: "Motif not found" });
     res.json(motif);

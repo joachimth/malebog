@@ -43,7 +43,9 @@ Preferred communication style: Simple, everyday language.
 - HTML5 Canvas for coloring interface
 - Tools: Brush, Eraser, Flood Fill, Color Picker (Pipette)
 - Features: Undo/Redo history, brush size control, preset color palette with custom color picker
-- Touch support for mobile devices
+- Touch support for mobile devices via pointer events
+- Canvas initialization uses ResizeObserver to handle layout timing
+- Motif data loaded from cached list via useMemo for better performance
 
 ## External Dependencies
 

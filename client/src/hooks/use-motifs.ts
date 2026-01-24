@@ -15,7 +15,7 @@ export function useMotifs() {
 export function useMotif(id: number) {
   return useQuery({
     queryKey: [api.motifs.get.path, id],
-    enabled: !isNaN(id),
+    enabled: id > 0,
     queryFn: async () => {
       const url = buildUrl(api.motifs.get.path, { id });
       const res = await fetch(url);

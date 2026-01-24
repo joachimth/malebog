@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useMotif } from "@/hooks/use-motifs";
+import { useMotifs } from "@/hooks/use-motifs";
 import { useSaveDrawing, useGetDrawing } from "@/hooks/use-drawings";
 import { Toolbar, ToolType } from "@/components/Toolbar";
 import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
@@ -15,7 +15,12 @@ export default function Editor() {
   const isSavedDrawing = !!matchSaved;
   const id = isSavedDrawing ? paramsSaved?.id : parseInt(params?.id || "0");
   
-  const { data: motif, isLoading: isLoadingMotif } = useMotif(isSavedDrawing ? 0 : id as number);
+  const { data: motifsList, isLoading: isLoadingMotif } = useMotifs();
+  const motif = useMemo(() => {
+    if (!motifsList || isSavedDrawing) return undefined;
+    return motifsList.find(m => m.id === id);
+  }, [motifsList, id, isSavedDrawing]);
+  
   const { data: savedDrawing, isLoading: isLoadingSaved } = useGetDrawing(isSavedDrawing ? id as string : "");
   
   const { mutate: saveDrawing, isPending: isSaving } = useSaveDrawing();
@@ -31,14 +36,39 @@ export default function Editor() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingTitle, setDrawingTitle] = useState("");
-
-  // Initialize Canvas
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const historyIndexRef = useRef(historyIndex);
+  
+  // Keep ref in sync
   useEffect(() => {
-    if (canvasRef.current) {
-      const canvas = canvasRef.current;
-      // High DPI scaling
+    historyIndexRef.current = historyIndex;
+  }, [historyIndex]);
+
+  // History Management - using ref to avoid stale closure issues
+  const saveState = useCallback((context: CanvasRenderingContext2D) => {
+    if (!context || !canvasRef.current) return;
+    const imageData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+    
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndexRef.current + 1);
+      newHistory.push(imageData);
+      if (newHistory.length > 20) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 19));
+  }, []);
+
+  // Initialize Canvas - wait for proper layout
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const initCanvas = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
+      
+      // Only initialize if canvas has actual dimensions
+      if (rect.width === 0 || rect.height === 0) return false;
       
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
@@ -48,104 +78,90 @@ export default function Editor() {
         context.scale(dpr, dpr);
         context.lineCap = 'round';
         context.lineJoin = 'round';
-        setCtx(context);
-        
-        // White background initially
         context.fillStyle = '#ffffff';
         context.fillRect(0, 0, rect.width, rect.height);
-        saveState(context);
+        setCtx(context);
+        return true;
       }
+      return false;
+    };
+    
+    // Try immediately
+    if (!initCanvas()) {
+      // If canvas not ready, use ResizeObserver to wait for layout
+      const observer = new ResizeObserver((entries) => {
+        if (entries[0]?.contentRect.width > 0) {
+          initCanvas();
+          observer.disconnect();
+        }
+      });
+      observer.observe(canvas);
+      return () => observer.disconnect();
     }
   }, []);
 
-  // History Management
-  const saveState = useCallback((context: CanvasRenderingContext2D = ctx!) => {
-    if (!context || !canvasRef.current) return;
-    const imageData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
-    
-    setHistory(prev => {
-      const newHistory = prev.slice(0, historyIndex + 1);
-      newHistory.push(imageData);
-      if (newHistory.length > 20) newHistory.shift();
-      return newHistory;
-    });
-    setHistoryIndex(prev => {
-      const newIndex = prev + 1;
-      return Math.min(newIndex, 19);
-    });
-  }, [ctx, historyIndex]);
-
-  // Load Content (Motif or Saved Drawing)
+  // Load Content - only when we have both ctx AND data
   useEffect(() => {
     if (!ctx || !canvasRef.current) return;
+    
+    // Wait for data to be ready
+    const sourceUrl = isSavedDrawing 
+      ? (savedDrawing ? URL.createObjectURL(savedDrawing.blob) : null)
+      : motif?.imageUrl;
+    
+    if (!sourceUrl) return;
 
     const canvas = canvasRef.current;
     const dpr = window.devicePixelRatio || 1;
-    let isMounted = true;
-
-    const loadContent = () => {
-      if (!isMounted) return;
-      
-      const img = new Image();
-      img.onload = () => {
-        if (!isMounted) return;
-
-        // Ensure canvas dimensions are perfect before drawing
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
-
-        // White background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-        
-        const scale = Math.min(
-          (canvas.width / dpr) / img.width,
-          (canvas.height / dpr) / img.height
-        ) * 0.95;
-        
-        const x = (canvas.width / dpr - img.width * scale) / 2;
-        const y = (canvas.height / dpr - img.height * scale) / 2;
-        
-        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-        
-        // Final sanity check redraw to be absolutely sure browser didn't skip the paint
-        setTimeout(() => {
-          if (isMounted) {
-             ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-             saveState(ctx);
-          }
-        }, 50);
-      };
-
-      img.onerror = () => {
-        if (isMounted) setTimeout(loadContent, 200);
-      };
-
-      img.crossOrigin = "anonymous";
-      
-      if (isSavedDrawing && savedDrawing) {
-        setDrawingTitle(savedDrawing.title);
-        img.src = URL.createObjectURL(savedDrawing.blob);
-      } else if (motif) {
-        setDrawingTitle(motif.title);
-        // Using an absolute timestamp and a random string to force a completely fresh request
-        const cacheBuster = `t=${Date.now()}&r=${Math.random().toString(36).substring(7)}`;
-        img.src = motif.imageUrl.startsWith('data:') ? motif.imageUrl : `${motif.imageUrl}?${cacheBuster}`;
-      }
-    };
-
-    const timer = setTimeout(() => {
-      if (isMounted) loadContent();
-    }, 50);
     
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
+    // Set title
+    if (isSavedDrawing && savedDrawing) {
+      setDrawingTitle(savedDrawing.title);
+    } else if (motif) {
+      setDrawingTitle(motif.title);
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    
+    img.onload = () => {
+      // Reset canvas dimensions
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+
+      // White background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+      
+      // Calculate scale to fit 95% of canvas
+      const scale = Math.min(
+        (canvas.width / dpr) / img.width,
+        (canvas.height / dpr) / img.height
+      ) * 0.95;
+      
+      const x = (canvas.width / dpr - img.width * scale) / 2;
+      const y = (canvas.height / dpr - img.height * scale) / 2;
+      
+      // Draw the image
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      
+      // Save initial state
+      setImageLoaded(true);
+      saveState(ctx);
     };
-  }, [ctx, motif?.id, savedDrawing?.id, isSavedDrawing]);
+
+    img.onerror = () => {
+      console.error("Failed to load image, retrying...");
+      setTimeout(() => {
+        img.src = sourceUrl;
+      }, 200);
+    };
+
+    img.src = sourceUrl;
+  }, [ctx, motif, savedDrawing, isSavedDrawing, saveState]);
 
   const undo = () => {
     if (historyIndex > 0 && ctx) {
@@ -164,15 +180,13 @@ export default function Editor() {
   };
 
   // Drawing Logic
-  const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
+  type DrawEvent = React.MouseEvent | React.TouchEvent | React.PointerEvent;
+  
+  const getCoordinates = (e: DrawEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    // Account for potential CSS scaling
-    const scaleX = canvasRef.current.width / (rect.width * (window.devicePixelRatio || 1));
-    const scaleY = canvasRef.current.height / (rect.height * (window.devicePixelRatio || 1));
     
     return {
       x: (clientX - rect.left),
@@ -180,14 +194,14 @@ export default function Editor() {
     };
   };
 
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+  const startDrawing = (e: DrawEvent) => {
     if (!ctx) return;
     
     const { x, y } = getCoordinates(e);
 
     if (tool === 'fill') {
       floodFill(x, y, color);
-      saveState();
+      if (ctx) saveState(ctx);
       return;
     }
 
@@ -207,7 +221,7 @@ export default function Editor() {
     ctx.stroke();
   };
 
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+  const draw = (e: DrawEvent) => {
     if (!isDrawing || !ctx || (tool !== 'brush' && tool !== 'eraser')) return;
     if ('cancelable' in e && e.cancelable) e.preventDefault();
     
@@ -220,7 +234,7 @@ export default function Editor() {
     if (!isDrawing) return;
     setIsDrawing(false);
     ctx?.closePath();
-    saveState();
+    if (ctx) saveState(ctx);
   };
 
   // Flood Fill Algorithm (Stack-based)
@@ -421,6 +435,7 @@ export default function Editor() {
         <div className="bg-white shadow-2xl relative w-full h-full flex items-center justify-center">
            <canvas
             ref={canvasRef}
+            data-testid="drawing-canvas"
             className="touch-none cursor-crosshair block bg-white w-full h-full object-contain"
             onMouseDown={startDrawing}
             onMouseMove={draw}
@@ -429,6 +444,9 @@ export default function Editor() {
             onTouchStart={startDrawing}
             onTouchEnd={stopDrawing}
             onTouchMove={draw}
+            onPointerDown={startDrawing}
+            onPointerMove={draw}
+            onPointerUp={stopDrawing}
           />
         </div>
       </main>
