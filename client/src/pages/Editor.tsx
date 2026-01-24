@@ -64,7 +64,10 @@ export default function Editor() {
 
     const loadContent = async () => {
       const img = new Image();
-      img.crossOrigin = "Anonymous";
+      // Try to handle data URLs specifically if they fail with anonymous
+      if (!motif?.imageUrl.startsWith('data:')) {
+        img.crossOrigin = "anonymous";
+      }
 
       img.onload = () => {
         const canvas = canvasRef.current!;
@@ -84,14 +87,14 @@ export default function Editor() {
         ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
         
         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-        saveState(ctx);
+        // Ensure state is saved after image is definitely loaded
+        setTimeout(() => saveState(ctx), 100);
       };
 
       if (isSavedDrawing && savedDrawing) {
         setDrawingTitle(savedDrawing.title);
         const url = URL.createObjectURL(savedDrawing.blob);
         img.src = url;
-        // cleanup handled by browser GC mostly, but could be strict about revoke
       } else if (motif) {
         setDrawingTitle(motif.title);
         img.src = motif.imageUrl;
@@ -106,14 +109,16 @@ export default function Editor() {
     if (!context || !canvasRef.current) return;
     const imageData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
     
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(imageData);
-    
-    // Limit history stack size for memory
-    if (newHistory.length > 20) newHistory.shift();
-    
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(imageData);
+      if (newHistory.length > 20) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex(prev => {
+      const newIndex = prev + 1;
+      return Math.min(newIndex, 19);
+    });
   };
 
   const undo = () => {
@@ -138,9 +143,14 @@ export default function Editor() {
     const rect = canvasRef.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    // Account for potential CSS scaling
+    const scaleX = canvasRef.current.width / (rect.width * (window.devicePixelRatio || 1));
+    const scaleY = canvasRef.current.height / (rect.height * (window.devicePixelRatio || 1));
+    
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
+      x: (clientX - rect.left),
+      y: (clientY - rect.top)
     };
   };
 
@@ -173,6 +183,7 @@ export default function Editor() {
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing || !ctx || (tool !== 'brush' && tool !== 'eraser')) return;
+    if ('cancelable' in e && e.cancelable) e.preventDefault();
     
     const { x, y } = getCoordinates(e);
     ctx.lineTo(x, y);
