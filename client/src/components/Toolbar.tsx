@@ -75,8 +75,8 @@ export function Toolbar({
 
       {/* Direct Color Picker Group */}
       <div className="flex items-center gap-1.5 md:gap-2 pr-4 border-r border-gray-200 shrink-0">
-        <div className="flex items-center gap-1 md:gap-1.5 flex-wrap max-w-[200px] md:max-w-none">
-          {PRESET_COLORS.slice(0, 10).map(c => (
+        <div className="flex items-center gap-1 md:gap-1.5 flex-wrap max-w-[280px] md:max-w-none">
+          {PRESET_COLORS.slice(0, 12).map(c => (
             <button
               key={c}
               className={cn(

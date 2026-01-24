@@ -83,7 +83,8 @@ export default function Editor() {
         const y = (canvas.height / dpr - img.height * scale) / 2;
         
         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-        saveState(ctx);
+        // Add a small delay to ensure drawing is flushed to canvas before saving state
+        setTimeout(() => saveState(ctx), 50);
       };
 
       img.onerror = () => {
@@ -91,21 +92,27 @@ export default function Editor() {
         setTimeout(loadContent, 200);
       };
 
-      if (!motif?.imageUrl.startsWith('data:')) {
-        img.crossOrigin = "anonymous";
-      }
+      // Handle CORS for all images to be safe, especially SVGs
+      img.crossOrigin = "anonymous";
 
       if (isSavedDrawing && savedDrawing) {
         setDrawingTitle(savedDrawing.title);
         img.src = URL.createObjectURL(savedDrawing.blob);
       } else if (motif) {
         setDrawingTitle(motif.title);
+        // Add timestamp to bypass cache if needed, but for data URLs it's fine
         img.src = motif.imageUrl;
       }
     };
 
-    // Ensure canvas is ready
-    const timer = setTimeout(loadContent, 50);
+    // Use a slightly longer delay and ensure the previous state is cleared
+    const timer = setTimeout(() => {
+      // Force a redraw of the background before loading image
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+      loadContent();
+    }, 100);
+    
     return () => clearTimeout(timer);
   }, [ctx, motif?.id, savedDrawing?.id, isSavedDrawing]);
 
