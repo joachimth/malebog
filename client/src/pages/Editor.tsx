@@ -68,14 +68,20 @@ export default function Editor() {
 
       img.onload = () => {
         const canvas = canvasRef.current!;
+        const dpr = window.devicePixelRatio || 1;
+        
         // Calculate aspect ratio fit
         const scale = Math.min(
-          canvas.width / window.devicePixelRatio / img.width,
-          canvas.height / window.devicePixelRatio / img.height
-        ) * 0.9; // 90% fill
+          canvas.width / dpr / img.width,
+          canvas.height / dpr / img.height
+        ) * 0.9;
         
-        const x = (canvas.width / window.devicePixelRatio - img.width * scale) / 2;
-        const y = (canvas.height / window.devicePixelRatio - img.height * scale) / 2;
+        const x = (canvas.width / dpr - img.width * scale) / 2;
+        const y = (canvas.height / dpr - img.height * scale) / 2;
+        
+        // Clear with white first to ensure clean state
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
         
         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
         saveState(ctx);
@@ -140,35 +146,33 @@ export default function Editor() {
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     if (!ctx) return;
-    setIsDrawing(true);
     
     const { x, y } = getCoordinates(e);
 
     if (tool === 'fill') {
       floodFill(x, y, color);
       saveState();
-      setIsDrawing(false);
       return;
     }
 
     if (tool === 'picker') {
       pickColor(x, y);
-      setIsDrawing(false);
       return;
     }
 
+    setIsDrawing(true);
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
     ctx.lineWidth = brushSize;
-    // Draw a single dot
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.lineTo(x, y);
     ctx.stroke();
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing || !ctx || (tool !== 'brush' && tool !== 'eraser')) return;
-    e.preventDefault(); // Prevent scrolling on touch
     
     const { x, y } = getCoordinates(e);
     ctx.lineTo(x, y);
