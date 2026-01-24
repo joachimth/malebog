@@ -64,12 +64,8 @@ export default function Editor() {
 
     const loadContent = async () => {
       const img = new Image();
-      // Try to handle data URLs specifically if they fail with anonymous
-      if (!motif?.imageUrl.startsWith('data:')) {
-        img.crossOrigin = "anonymous";
-      }
-
-      img.onload = () => {
+      
+      const onImageLoad = () => {
         const canvas = canvasRef.current!;
         const dpr = window.devicePixelRatio || 1;
         
@@ -77,7 +73,7 @@ export default function Editor() {
         const scale = Math.min(
           canvas.width / dpr / img.width,
           canvas.height / dpr / img.height
-        ) * 0.9;
+        ) * 0.95; // Increased scale slightly
         
         const x = (canvas.width / dpr - img.width * scale) / 2;
         const y = (canvas.height / dpr - img.height * scale) / 2;
@@ -91,6 +87,20 @@ export default function Editor() {
         setTimeout(() => saveState(ctx), 100);
       };
 
+      img.onload = onImageLoad;
+      img.onerror = (err) => {
+        console.error("Fejl ved indlæsning af motiv:", err);
+        // Try one retry if it fails
+        setTimeout(() => {
+          img.src = motif?.imageUrl || img.src;
+        }, 500);
+      };
+
+      // Try to handle data URLs specifically
+      if (motif?.imageUrl && !motif.imageUrl.startsWith('data:')) {
+        img.crossOrigin = "anonymous";
+      }
+
       if (isSavedDrawing && savedDrawing) {
         setDrawingTitle(savedDrawing.title);
         const url = URL.createObjectURL(savedDrawing.blob);
@@ -102,7 +112,7 @@ export default function Editor() {
     };
 
     loadContent();
-  }, [ctx, motif, savedDrawing, isSavedDrawing]);
+  }, [ctx, motif?.id, savedDrawing?.id, isSavedDrawing]);
 
   // History Management
   const saveState = (context: CanvasRenderingContext2D = ctx!) => {
@@ -391,18 +401,18 @@ export default function Editor() {
       </header>
 
       {/* Canvas Area */}
-      <main className="flex-1 relative bg-checkered flex items-center justify-center p-4">
-        <div className="bg-white shadow-2xl relative">
+      <main className="flex-1 relative bg-checkered flex items-center justify-center p-2 md:p-4 overflow-hidden">
+        <div className="bg-white shadow-2xl relative w-full h-full max-w-[98vw] max-h-[calc(100vh-14rem)] flex items-center justify-center">
            <canvas
             ref={canvasRef}
-            className="w-full h-full touch-none cursor-crosshair max-w-[90vw] max-h-[80vh] aspect-[4/3] block bg-white"
+            className="touch-none cursor-crosshair block bg-white w-auto h-auto max-w-full max-h-full aspect-[4/3]"
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
             onMouseLeave={stopDrawing}
             onTouchStart={startDrawing}
-            onTouchMove={draw}
             onTouchEnd={stopDrawing}
+            onTouchMove={draw}
           />
         </div>
       </main>

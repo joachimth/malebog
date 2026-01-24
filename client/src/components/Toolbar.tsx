@@ -73,32 +73,37 @@ export function Toolbar({
         />
       </div>
 
-      {/* Color Picker Group */}
-      <div className="flex items-center gap-3 pr-4 border-r border-gray-200">
-        <Popover>
-          <PopoverTrigger asChild>
-            <button 
-              className="w-10 h-10 rounded-full border-2 border-white ring-2 ring-gray-200 shadow-sm transition-transform hover:scale-110 active:scale-95"
-              style={{ backgroundColor: color }}
+      {/* Direct Color Picker Group */}
+      <div className="flex items-center gap-2 md:gap-3 pr-4 border-r border-gray-200 overflow-x-auto max-w-[30vw] md:max-w-none no-scrollbar">
+        <div className="flex items-center gap-1.5 md:gap-2">
+          {PRESET_COLORS.map(c => (
+            <button
+              key={c}
+              className={cn(
+                "w-8 h-8 md:w-10 md:h-10 rounded-full border-2 transition-all hover:scale-110 active:scale-95 shrink-0",
+                color === c ? "border-primary ring-2 ring-primary/20 scale-110" : "border-white shadow-sm"
+              )}
+              style={{ backgroundColor: c }}
+              onClick={() => setColor(c)}
             />
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-4 rounded-2xl">
-            <HexColorPicker color={color} onChange={setColor} />
-            <div className="grid grid-cols-4 gap-2 mt-4">
-              {PRESET_COLORS.map(c => (
-                <button
-                  key={c}
-                  className="w-8 h-8 rounded-full border border-black/10 hover:scale-110 transition-transform"
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
+          ))}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button 
+                className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:bg-gray-50 shrink-0"
+                title="Vælg selv farve"
+              >
+                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gradient-to-tr from-red-500 via-green-500 to-blue-500" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-4 rounded-2xl">
+              <HexColorPicker color={color} onChange={setColor} />
+            </PopoverContent>
+          </Popover>
+        </div>
         
         {/* Simple Size Slider */}
-        <div className="hidden md:flex flex-col gap-1 w-24">
+        <div className="hidden lg:flex flex-col gap-1 w-24 ml-2">
           <input 
             type="range" 
             min="1" 
