@@ -430,9 +430,9 @@ export default function Editor() {
         </div>
       </header>
 
-      {/* Canvas Area */}
-      <main className="flex-1 relative bg-checkered flex items-center justify-center p-2 md:p-4 overflow-hidden">
-        <div className="bg-white shadow-2xl relative w-full h-full flex items-center justify-center">
+      {/* Canvas Area - with bottom padding for toolbar */}
+      <main className="flex-1 relative bg-checkered flex items-center justify-center p-2 md:p-4 pb-28 md:pb-20 overflow-hidden">
+        <div className="bg-white shadow-2xl relative w-full h-full flex items-center justify-center rounded-lg overflow-hidden">
            <canvas
             ref={canvasRef}
             data-testid="drawing-canvas"
