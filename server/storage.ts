@@ -1,38 +1,28 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { motifs, type Motif, type InsertMotif } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getMotifs(): Promise<Motif[]>;
+  getMotif(id: number): Promise<Motif | undefined>;
+  seedMotifs(motifs: InsertMotif[]): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getMotifs(): Promise<Motif[]> {
+    return await db.select().from(motifs);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getMotif(id: number): Promise<Motif | undefined> {
+    const [motif] = await db.select().from(motifs).where(eq(motifs.id, id));
+    return motif;
   }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  
+  async seedMotifs(newMotifs: InsertMotif[]): Promise<void> {
+    if (newMotifs.length === 0) return;
+    await db.insert(motifs).values(newMotifs);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
