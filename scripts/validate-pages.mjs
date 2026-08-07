@@ -2,6 +2,11 @@ import { readFile, readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
 const outputDir = resolve(process.argv[2] ?? "dist-pages");
+const budgets = {
+  total: 650 * 1024,
+  javascript: 500 * 1024,
+  css: 100 * 1024,
+};
 const errors = [];
 
 async function readText(name) {
@@ -90,5 +95,23 @@ const byteSize = async (paths) =>
     .reduce((total, size) => total + size, 0);
 const jsBytes = await byteSize(files.filter((file) => file.endsWith(".js")));
 const cssBytes = await byteSize(files.filter((file) => file.endsWith(".css")));
+const totalBytes = await byteSize(files);
 
-console.log(`Pages artifact valid: ${files.length} files, ${jsBytes} JS bytes, ${cssBytes} CSS bytes`);
+for (const [label, actual, limit] of [
+  ["total artifact", totalBytes, budgets.total],
+  ["JavaScript", jsBytes, budgets.javascript],
+  ["CSS", cssBytes, budgets.css],
+]) {
+  if (actual > limit) {
+    errors.push(`${label} exceeds budget: ${actual} bytes > ${limit} bytes`);
+  }
+}
+
+if (errors.length) {
+  console.error(errors.map((error) => `- ${error}`).join("\n"));
+  process.exit(1);
+}
+
+console.log(
+  `Pages artifact valid: ${files.length} files, ${totalBytes} total bytes, ${jsBytes} JS bytes, ${cssBytes} CSS bytes`,
+);

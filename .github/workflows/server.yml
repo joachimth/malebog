@@ -1,0 +1,39 @@
+name: Validate Malebog server build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Build Replit server bundle
+        run: npm run build
+
+      - name: Check generated bundle syntax
+        run: node --check dist/index.cjs
