@@ -6,6 +6,7 @@ import { Toolbar, ToolType } from "@/components/Toolbar";
 import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 import { v4 as uuidv4 } from 'uuid';
 
 export default function Editor() {
@@ -105,10 +106,11 @@ export default function Editor() {
     if (!ctx || !canvasRef.current) return;
     
     // Wait for data to be ready
-    const sourceUrl = isSavedDrawing 
-      ? (savedDrawing ? URL.createObjectURL(savedDrawing.blob) : null)
+    let objectUrl: string | undefined;
+    const sourceUrl = isSavedDrawing
+      ? (savedDrawing ? (objectUrl = URL.createObjectURL(savedDrawing.blob)) : null)
       : motif?.imageUrl;
-    
+
     if (!sourceUrl) return;
 
     const canvas = canvasRef.current;
@@ -122,9 +124,12 @@ export default function Editor() {
     }
 
     const img = new Image();
+    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
     img.crossOrigin = "anonymous";
-    
+
     img.onload = () => {
+      if (cancelled) return;
       // Reset canvas dimensions
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
@@ -154,13 +159,22 @@ export default function Editor() {
     };
 
     img.onerror = () => {
+      if (cancelled) return;
       console.error("Failed to load image, retrying...");
-      setTimeout(() => {
-        img.src = sourceUrl;
+      retryTimeout = setTimeout(() => {
+        if (!cancelled) img.src = sourceUrl;
       }, 200);
     };
 
     img.src = sourceUrl;
+
+    return () => {
+      cancelled = true;
+      if (retryTimeout) clearTimeout(retryTimeout);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      img.onload = null;
+      img.onerror = null;
+    };
   }, [ctx, motif, savedDrawing, isSavedDrawing, saveState]);
 
   const undo = () => {
@@ -404,7 +418,9 @@ export default function Editor() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden touch-none">
+    <>
+      <Toaster />
+      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden touch-none">
       {/* Top Bar */}
       <header className="h-16 bg-white border-b px-4 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-4">
@@ -467,6 +483,7 @@ export default function Editor() {
         onSave={handleSave}
         onDownload={handleDownload}
       />
-    </div>
+      </div>
+    </>
   );
 }

@@ -121,10 +121,12 @@ export default function Home() {
                           </div>
                           
                           <div className="flex-1 w-full flex items-center justify-center p-2 mb-4">
-                            <img 
-                              src={motif.imageUrl} 
-                              alt={motif.title} 
-                              className="w-full h-auto max-h-40 object-contain group-hover:scale-110 transition-transform duration-500 ease-out" 
+                            <img
+                              src={motif.imageUrl}
+                              alt={motif.title}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-auto max-h-40 object-contain group-hover:scale-110 transition-transform duration-500 ease-out"
                             />
                           </div>
                           

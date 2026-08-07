@@ -23,7 +23,7 @@ cp dist-pages/index.html dist-pages/404.html
 npx vite preview --config vite.config.pages.ts
 ```
 
-Open the preview URL shown by Vite. The static build does not request `/api/motifs` and does not require PostgreSQL; motifs come from the shared seed catalog.
+Open the preview URL shown by Vite. The static build does not request `/api/motifs` and does not require PostgreSQL; motifs come from the shared seed catalog. GitHub Pages publishes a `404.html` SPA fallback so direct links can still boot the app while preserving clean routes.
 
 ## Published site
 

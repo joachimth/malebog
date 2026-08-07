@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Trash2, Edit2, Download } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { da } from "date-fns/locale";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import { da } from "date-fns/locale/da";
 import type { SavedDrawing } from "@/hooks/use-drawings";
 import { motion } from "framer-motion";
 
@@ -63,9 +63,11 @@ export function DrawingCard({ drawing, onDelete }: DrawingCardProps) {
       {/* Thumbnail with link to edit */}
       <Link href={`/editor/saved/${drawing.id}`}>
         <div className="relative aspect-[4/3] bg-checkered cursor-pointer">
-          <img 
-            src={drawing.thumbnail} 
-            alt={drawing.title} 
+          <img
+            src={drawing.thumbnail}
+            alt={drawing.title}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
           />
         </div>
