@@ -52,7 +52,6 @@ Preferred communication style: Simple, everyday language.
 ### Database
 - **PostgreSQL**: Primary database for motif storage
 - **Drizzle ORM**: Type-safe database queries and migrations
-- **connect-pg-simple**: Session storage (if sessions are added)
 
 ### Frontend Libraries
 - **react-colorful**: Color picker component for drawing tools
