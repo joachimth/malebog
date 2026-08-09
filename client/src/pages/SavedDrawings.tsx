@@ -18,10 +18,8 @@ export default function SavedDrawings() {
       {/* Header */}
       <header className="bg-white border-b sticky top-0 z-30">
         <div className="container mx-auto px-4 h-20 flex items-center gap-4">
-          <Link href="/">
-            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <ArrowLeft className="w-6 h-6" />
-            </button>
+          <Link href="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors" aria-label="Til forsiden">
+            <ArrowLeft className="w-6 h-6" aria-hidden="true" />
           </Link>
           <div className="flex items-center gap-2">
             <div className="bg-secondary/10 p-2 rounded-lg">
@@ -53,10 +51,8 @@ export default function SavedDrawings() {
               <FolderOpen className="w-20 h-20 text-gray-300" />
             </div>
             <h2 className="text-2xl font-display text-gray-400 mb-4">Dit galleri er tomt</h2>
-            <Link href="/">
-              <button className="px-8 py-4 bg-primary text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-                Start en ny tegning!
-              </button>
+            <Link href="/" className="inline-flex px-8 py-4 bg-primary text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+              Start en ny tegning!
             </Link>
           </div>
         )}

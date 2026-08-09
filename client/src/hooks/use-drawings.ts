@@ -20,13 +20,27 @@ interface ColoringBookDB extends DBSchema {
 const DB_NAME = 'coloring-book-db';
 const STORE_NAME = 'drawings';
 
-async function getDB() {
-  return openDB<ColoringBookDB>(DB_NAME, 1, {
-    upgrade(db) {
-      const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      store.createIndex('by-date', 'updatedAt');
-    },
-  });
+let dbPromise: ReturnType<typeof openDB<ColoringBookDB>> | undefined;
+
+function getDB() {
+  if (!dbPromise) {
+    dbPromise = openDB<ColoringBookDB>(DB_NAME, 1, {
+      upgrade(db) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        store.createIndex('by-date', 'updatedAt');
+      },
+      blocked() {
+        console.warn('IndexedDB upgrade is blocked by another tab.');
+      },
+      blocking() {
+        dbPromise = undefined;
+      },
+    });
+    dbPromise.catch(() => {
+      dbPromise = undefined;
+    });
+  }
+  return dbPromise;
 }
 
 export interface SavedDrawing {
@@ -44,7 +58,8 @@ export function useSavedDrawings() {
     queryKey: ['drawings'],
     queryFn: async () => {
       const db = await getDB();
-      return db.getAllFromIndex(STORE_NAME, 'by-date');
+      const drawings = await db.getAllFromIndex(STORE_NAME, 'by-date');
+      return drawings.sort((a, b) => b.updatedAt - a.updatedAt);
     },
   });
 }

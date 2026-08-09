@@ -16,15 +16,19 @@ export default function Editor() {
   const isSavedDrawing = !!matchSaved;
   const id = isSavedDrawing ? paramsSaved?.id : parseInt(params?.id || "0");
   
-  const { data: motifsList, isLoading: isLoadingMotif } = useMotifs();
+  const { data: motifsList, isLoading: isLoadingMotif, isError: isMotifError } = useMotifs();
   const motif = useMemo(() => {
     if (!motifsList || isSavedDrawing) return undefined;
     return motifsList.find(m => m.id === id);
   }, [motifsList, id, isSavedDrawing]);
   
-  const { data: savedDrawing, isLoading: isLoadingSaved } = useGetDrawing(isSavedDrawing ? id as string : "");
+  const {
+    data: savedDrawing,
+    isLoading: isLoadingSaved,
+    isError: isSavedDrawingError,
+  } = useGetDrawing(isSavedDrawing ? id as string : "");
   
-  const { mutate: saveDrawing, isPending: isSaving } = useSaveDrawing();
+  const { mutateAsync: saveDrawing, isPending: isSaving } = useSaveDrawing();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -194,17 +198,15 @@ export default function Editor() {
   };
 
   // Drawing Logic
-  type DrawEvent = React.MouseEvent | React.TouchEvent | React.PointerEvent;
-  
+  type DrawEvent = React.PointerEvent<HTMLCanvasElement>;
+
   const getCoordinates = (e: DrawEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
+
     return {
-      x: (clientX - rect.left),
-      y: (clientY - rect.top)
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
     };
   };
 
@@ -224,6 +226,7 @@ export default function Editor() {
       return;
     }
 
+    e.currentTarget.setPointerCapture(e.pointerId);
     setIsDrawing(true);
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -244,9 +247,12 @@ export default function Editor() {
     ctx.stroke();
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e?: DrawEvent) => {
     if (!isDrawing) return;
     setIsDrawing(false);
+    if (e && e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
     ctx?.closePath();
     if (ctx) saveState(ctx);
   };
@@ -376,17 +382,27 @@ export default function Editor() {
     // Create Thumbnail
     const thumbUrl = canvas.toDataURL("image/jpeg", 0.3); // Low quality for thumbnail
     
-    // Create Blob
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      
-      const drawingId = isSavedDrawing ? (id as string) : uuidv4();
-      
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/png");
+    });
+
+    if (!blob) {
+      toast({
+        title: "Kunne ikke gemme",
+        description: "Der kunne ikke oprettes billeddata fra tegningen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const drawingId = isSavedDrawing ? (id as string) : uuidv4();
+
+    try {
       await saveDrawing({
         id: drawingId,
         motifId: typeof id === 'number' ? id : undefined,
         title: drawingTitle || "Min tegning",
-        blob: blob,
+        blob,
         thumbnail: thumbUrl,
         createdAt: isSavedDrawing && savedDrawing ? savedDrawing.createdAt : Date.now(),
         updatedAt: Date.now()
@@ -397,12 +413,18 @@ export default function Editor() {
         description: "Din tegning er gemt i 'Mine Tegninger'",
         action: <CheckCircle2 className="text-green-500" />
       });
-      
+
       if (!isSavedDrawing) {
-        // Redirect to saved version so future saves overwrite
         setLocation(`/editor/saved/${drawingId}`);
       }
-    }, "image/png");
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({
+        title: "Kunne ikke gemme",
+        description: "Prøv igen. Tegningen er ikke blevet ændret.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownload = () => {
@@ -417,6 +439,22 @@ export default function Editor() {
     return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin w-10 h-10 text-primary" /></div>;
   }
 
+  if (isMotifError || isSavedDrawingError || (!isSavedDrawing && !motif) || (isSavedDrawing && !savedDrawing)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="max-w-md rounded-3xl border-2 border-border bg-white p-10 text-center shadow-xl">
+          <h1 className="mb-4 text-3xl font-display">Tegningen blev ikke fundet</h1>
+          <p className="mb-8 text-muted-foreground">
+            Motivet eller den gemte tegning findes ikke længere.
+          </p>
+          <Link href="/" className="inline-flex rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground">
+            Gå tilbage til forsiden
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Toaster />
@@ -424,12 +462,12 @@ export default function Editor() {
       {/* Top Bar */}
       <header className="h-16 bg-white border-b px-4 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-4">
-          <Link href="/">
-            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <ArrowLeft className="w-6 h-6" />
-            </button>
+          <Link href="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors" aria-label="Til forsiden">
+            <ArrowLeft className="w-6 h-6" aria-hidden="true" />
           </Link>
+          <label htmlFor="drawing-title" className="sr-only">Navn på tegning</label>
           <input
+            id="drawing-title"
             value={drawingTitle}
             onChange={(e) => setDrawingTitle(e.target.value)}
             className="font-display text-xl bg-transparent border-none focus:ring-0 placeholder:text-muted-foreground w-48 md:w-auto truncate"
@@ -452,17 +490,13 @@ export default function Editor() {
            <canvas
             ref={canvasRef}
             data-testid="drawing-canvas"
+            role="img"
+            aria-label="Tegneområde. Brug pensel, viskelæder eller fyld-værktøj til at farvelægge motivet."
             className="touch-none cursor-crosshair block bg-white w-full h-full object-contain"
-            onMouseDown={startDrawing}
-            onMouseMove={draw}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
-            onTouchStart={startDrawing}
-            onTouchEnd={stopDrawing}
-            onTouchMove={draw}
             onPointerDown={startDrawing}
             onPointerMove={draw}
             onPointerUp={stopDrawing}
+            onPointerCancel={stopDrawing}
           />
         </div>
       </main>

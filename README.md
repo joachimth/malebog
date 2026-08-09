@@ -31,4 +31,4 @@ After GitHub Pages is enabled for the repository, the expected URL is:
 
 <https://joachimth.github.io/malebog/>
 
-The workflow in `.github/workflows/pages.yml` builds and publishes the site on pushes to `main`.
+The workflow in `.github/workflows/pages.yml` validates Pages builds on pull requests and publishes the site on pushes to `main`. The server exposes `/healthz` and `/readyz`, uses bounded PostgreSQL pooling, and seeds motifs idempotently.

@@ -15,15 +15,14 @@ const allowlist = [
   "express-rate-limit",
   "jsonwebtoken",
   "multer",
-  "nanoid",
   "nodemailer",
   "openai",
   "pg",
   "stripe",
   "uuid",
+  "zod-validation-error",
   "xlsx",
   "zod",
-  "zod-validation-error",
 ];
 
 async function buildAll() {

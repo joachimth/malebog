@@ -13,10 +13,8 @@ export default function NotFound() {
           Vi kunne ikke finde den side du leder efter. Måske har en drilsk nisse flyttet den?
         </p>
 
-        <Link href="/">
-          <button className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-opacity">
-            Gå tilbage til forsiden
-          </button>
+        <Link href="/" className="block w-full py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-opacity">
+          Gå tilbage til forsiden
         </Link>
       </div>
     </div>

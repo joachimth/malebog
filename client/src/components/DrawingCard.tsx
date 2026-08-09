@@ -10,6 +10,11 @@ interface DrawingCardProps {
   onDelete: (id: string) => void;
 }
 
+function safeFilename(title: string) {
+  const cleaned = title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").trim();
+  return `${cleaned || "tegning"}.png`;
+}
+
 export function DrawingCard({ drawing, onDelete }: DrawingCardProps) {
   const handleDownload = async () => {
     if (!drawing.blob) {
@@ -21,7 +26,7 @@ export function DrawingCard({ drawing, onDelete }: DrawingCardProps) {
     try {
       // Try using Share API on mobile (works great on iOS)
       if (navigator.share && navigator.canShare) {
-        const file = new File([drawing.blob], `${drawing.title}.png`, { type: 'image/png' });
+        const file = new File([drawing.blob], safeFilename(drawing.title), { type: 'image/png' });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
@@ -35,7 +40,7 @@ export function DrawingCard({ drawing, onDelete }: DrawingCardProps) {
       const url = URL.createObjectURL(drawing.blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${drawing.title}.png`;
+      a.download = safeFilename(drawing.title);
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
@@ -46,11 +51,13 @@ export function DrawingCard({ drawing, onDelete }: DrawingCardProps) {
         URL.revokeObjectURL(url);
       }, 100);
     } catch (error) {
-      console.error("Download error:", error);
-      // Final fallback - open in new tab
-      const url = URL.createObjectURL(drawing.blob);
-      window.open(url, '_blank');
-    }
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    console.error("Download error:", error);
+    const url = URL.createObjectURL(drawing.blob);
+    const opened = window.open(url, '_blank');
+    if (!opened) URL.revokeObjectURL(url);
+    else setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
   };
 
   return (
@@ -82,14 +89,13 @@ export function DrawingCard({ drawing, onDelete }: DrawingCardProps) {
           </p>
         </div>
         <div className="flex items-center gap-1">
-          <Link href={`/editor/saved/${drawing.id}`}>
-            <button 
-              className="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors"
-              title="Rediger"
-              data-testid={`button-edit-${drawing.id}`}
-            >
-              <Edit2 className="w-5 h-5" />
-            </button>
+          <Link
+            href={`/editor/saved/${drawing.id}`}
+            className="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors"
+            aria-label="Rediger"
+            data-testid={`button-edit-${drawing.id}`}
+          >
+            <Edit2 className="w-5 h-5" aria-hidden="true" />
           </Link>
           <button 
             onClick={handleDownload}
